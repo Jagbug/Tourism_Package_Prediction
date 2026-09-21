@@ -7,7 +7,7 @@ on:
   workflow_dispatch:  # lets you click "Run workflow" in the Actions tab
 
 permissions:
-  contents: write
+  contents: write  # Gives the workflow bot permission to write/push changes back to the repository
 
 jobs:
 
@@ -55,7 +55,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+        with:
+          token: ${{ secrets.GH_TOKEN || github.token }}  # Use GITHUB_TOKEN or customized personal access token to authorize push back
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install Dependencies
@@ -67,13 +70,14 @@ jobs:
       - name: Start MLflow Server
         run: |
           nohup mlflow ui --host 0.0.0.0 --port 5000 &
-          sleep 5  # Wait for a moment to let the server start
+          sleep 5
       - name: Model Building
         run: python tourism_project/model_building/train.py
-      - name: Commit Trained Model
+      - name: Commit and Push Trained Model
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add tourism_project/deployment/*.joblib
+          # Commit only if changes are present, skipping CI trigger to avoid infinite run loops
           git commit -m "Add trained model [skip ci]" || echo "No changes to commit"
-          git push
+          git push origin main
